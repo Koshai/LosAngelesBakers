@@ -5,35 +5,50 @@ using UnityEngine;
 public class PlayerMovement : MonoBehaviour
 {
     public float speed = 1f;
-
+    
     private Rigidbody2D rb;
 
-    // Start is called before the first frame update
     void Start()
     {
+        // Get the Rigidbody2D component
         rb = GetComponent<Rigidbody2D>();
     }
 
-    // Update is called once per frame
     void Update()
     {
         // Get input from the player
         float horizontalInput = Input.GetAxis("Horizontal");
         float verticalInput = Input.GetAxis("Vertical");
 
-        // Calculate the movement vector
         Vector2 movement = new Vector2(horizontalInput, verticalInput);
 
-        // Normalize the movement vector to ensure consistent speed in all directions
         movement.Normalize();
 
-        // Move the player
         rb.velocity = movement * speed;
 
-        // Check if there is no input, then set the velocity to zero
-        if (Mathf.Approximately(horizontalInput, 0f) && Mathf.Approximately(verticalInput, 0f))
+        if (transform.position.y > 2.0f)
         {
-            rb.velocity = Vector2.zero;
+            rb.velocity = new Vector2(rb.velocity.x, 2.0f);
+
+            transform.position = new Vector3(transform.position.x, 2.0f, -0.2f);
+        }
+        if (transform.position.y < -3.4f)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, -3.4f);
+
+            transform.position = new Vector3(transform.position.x, -3.4f, -0.2f);
+        }
+        if (transform.position.x < -15.9f)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, -15.9f);
+
+            transform.position = new Vector3(-15.9f, transform.position.y, -0.2f);
+        }
+        if (transform.position.x > 15.9f)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, 15.9f);
+
+            transform.position = new Vector3(15.9f, transform.position.y, -0.2f);
         }
     }
 }
