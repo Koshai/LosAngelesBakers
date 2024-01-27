@@ -8,6 +8,16 @@ public class PlayerMovement : MonoBehaviour
     
     private Rigidbody2D rb;
 
+    public GameObject childObject; // Reference to the child GameObject to be made visible
+
+    private bool hasPressedZ = false;
+
+    public float doubleKeyPressTimeThreshold = 0.5f; // Adjust this threshold as needed
+
+    private bool pressedOnce = false;
+
+    private float timeOfFirstKeyPress;
+
     void Start()
     {
         // Get the Rigidbody2D component
@@ -19,6 +29,36 @@ public class PlayerMovement : MonoBehaviour
         // Get input from the player
         float horizontalInput = Input.GetAxis("Horizontal");
         float verticalInput = Input.GetAxis("Vertical");
+
+        if (Mathf.Abs(horizontalInput) > 0.1f)
+        {
+            if (!pressedOnce)
+            {
+                // This block will be executed only once when the key is pressed
+                // Start the timer
+                timeOfFirstKeyPress = Time.time;
+                pressedOnce = true;
+            }
+        }
+        else
+        {
+            // Key is released
+            pressedOnce = false;
+            speed = 5f;
+        }
+
+        // Check if the key is pressed again and the timer is within the threshold
+        if (pressedOnce && ((Input.GetKeyDown(KeyCode.LeftArrow) || (Input.GetKeyDown(KeyCode.RightArrow))) && (Time.time - timeOfFirstKeyPress) < doubleKeyPressTimeThreshold))
+        {
+            // Double key press detected
+            Debug.Log("Double key press detected!");
+
+            // Perform the double key action here
+            speed = 10f;
+
+            // Optionally, reset the timer to prevent multiple double key presses in quick succession
+            timeOfFirstKeyPress = Time.time;
+        }
 
         Vector2 movement = new Vector2(horizontalInput, verticalInput);
 
@@ -49,6 +89,40 @@ public class PlayerMovement : MonoBehaviour
             rb.velocity = new Vector2(rb.velocity.x, 15.9f);
 
             transform.position = new Vector3(15.9f, transform.position.y, -0.2f);
+        }
+
+        // Check if the Z key is pressed and the action hasn't been performed yet
+        if (Input.GetKeyDown(KeyCode.Z) && !hasPressedZ)
+        {
+            // Make the child GameObject visible
+            if (childObject != null)
+            {
+                childObject.SetActive(true);
+            }
+
+            // Set the flag to indicate that the action has been performed
+            hasPressedZ = true;
+
+            // Start a coroutine to make the elbow disappear after a delay
+            StartCoroutine(MakeElbowDisappear());
+        }
+
+        // Check if the Z key is pressed and the action hasn't been performed yet
+        if (Input.GetKeyUp(KeyCode.Z) && hasPressedZ)
+        {
+            hasPressedZ = false;
+        }
+    }
+
+    IEnumerator MakeElbowDisappear()
+    {
+        // Wait for 0.2 seconds
+        yield return new WaitForSeconds(0.2f);
+
+        // Make the child GameObject disappear
+        if (childObject != null)
+        {
+            childObject.SetActive(false);
         }
     }
 }
