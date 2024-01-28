@@ -1,128 +1,221 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PlayerMovement : MonoBehaviour
 {
+    public AudioSource backAudioSource;
+    Animator animate;
+    bool isMoving;
+
     public float speed = 1f;
     
     private Rigidbody2D rb;
 
-    public GameObject childObject; // Reference to the child GameObject to be made visible
+    public PlayerController playerController;
+
+    public GameObject elbow;
+    public GameObject cup;
 
     private bool hasPressedZ = false;
+    private bool hasPressedX = false;
 
-    public float doubleKeyPressTimeThreshold = 0.5f; // Adjust this threshold as needed
+    Vector3 currentDir;
+    Vector3 lastWalkVector;
 
-    private bool pressedOnce = false;
+    float tapAgainToRunTime = 0.2f;
 
-    private float timeOfFirstKeyPress;
+    public bool canRun = true;
+
+    float lastWalk;
+
+    bool isAttackingAnim = false;
+
+    bool isHit = false;
+
+    bool gameoverStarts = false;
 
     void Start()
     {
-        // Get the Rigidbody2D component
+        backAudioSource.Play();
         rb = GetComponent<Rigidbody2D>();
+        animate = GetComponent<Animator>();
+    }
+
+    private void FixedUpdate()
+    {
+        Vector3 moveVector = currentDir * speed;
+        if (!isAttackingAnim)
+        {
+            rb.MovePosition(transform.position + moveVector * Time.fixedDeltaTime);
+        }
     }
 
     void Update()
     {
-        // Get input from the player
-        float horizontalInput = Input.GetAxis("Horizontal");
-        float verticalInput = Input.GetAxis("Vertical");
-
-        if (Mathf.Abs(horizontalInput) > 0.1f)
+        if (!playerController.isAlive)
         {
-            if (!pressedOnce)
+            animate.SetBool("isMove", false);
+            animate.SetBool("isAttack", false);
+            animate.SetBool("isHit", false);
+            Debug.Log("Player defeated");
+            if (!gameoverStarts)
             {
-                // This block will be executed only once when the key is pressed
-                // Start the timer
-                timeOfFirstKeyPress = Time.time;
-                pressedOnce = true;
+                gameoverStarts = true;
+                Destroy(rb);
+                playerController.GetDeadSound();
+                StartCoroutine("ShowPlayerEnding");
+            }
+            
+            return;
+        }
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
+
+        currentDir = new Vector3(h, v, -0.2f);
+        currentDir.Normalize();
+
+        if (!isAttackingAnim)
+        {
+            if ((v == 0 && h == 0))
+            {
+                isMoving = false;
+            }
+            else if (!isMoving && (v != 0 || h != 0))
+            {
+                isMoving = true;
+                float dotProduct = Vector3.Dot(currentDir, lastWalkVector);
+
+                if (canRun && Time.time < lastWalk + tapAgainToRunTime && dotProduct > 0)
+                {
+                    speed = 10f;
+                }
+                else
+                {
+                    speed = 5f;
+                    if (h != 0)
+                    {
+                        lastWalkVector = currentDir;
+                        lastWalk = Time.time;
+                    }
+                }
             }
         }
-        else
+
+        if (transform.position.y > 0.85f)
         {
-            // Key is released
-            pressedOnce = false;
-            speed = 5f;
+            rb.velocity = new Vector2(rb.velocity.x, 0);
+
+            transform.position = new Vector3(transform.position.x, 0.85f, 0);
         }
-
-        // Check if the key is pressed again and the timer is within the threshold
-        if (pressedOnce && ((Input.GetKeyDown(KeyCode.LeftArrow) || (Input.GetKeyDown(KeyCode.RightArrow))) && (Time.time - timeOfFirstKeyPress) < doubleKeyPressTimeThreshold))
+        if (transform.position.y < -4.7f)
         {
-            // Double key press detected
-            Debug.Log("Double key press detected!");
+            rb.velocity = new Vector2(rb.velocity.x, 0);
 
-            // Perform the double key action here
-            speed = 10f;
-
-            // Optionally, reset the timer to prevent multiple double key presses in quick succession
-            timeOfFirstKeyPress = Time.time;
-        }
-
-        Vector2 movement = new Vector2(horizontalInput, verticalInput);
-
-        movement.Normalize();
-
-        rb.velocity = movement * speed;
-
-        if (transform.position.y > 2.0f)
-        {
-            rb.velocity = new Vector2(rb.velocity.x, 2.0f);
-
-            transform.position = new Vector3(transform.position.x, 2.0f, -0.2f);
-        }
-        if (transform.position.y < -3.4f)
-        {
-            rb.velocity = new Vector2(rb.velocity.x, -3.4f);
-
-            transform.position = new Vector3(transform.position.x, -3.4f, -0.2f);
+            transform.position = new Vector3(transform.position.x, -4.7f,0);
         }
         if (transform.position.x < -15.9f)
         {
-            rb.velocity = new Vector2(rb.velocity.x, -15.9f);
+            rb.velocity = new Vector2(0, rb.velocity.y);
 
-            transform.position = new Vector3(-15.9f, transform.position.y, -0.2f);
+            transform.position = new Vector3(-15.9f, transform.position.y, 0);
         }
         if (transform.position.x > 15.9f)
         {
-            rb.velocity = new Vector2(rb.velocity.x, 15.9f);
+            rb.velocity = new Vector2(0, rb.velocity.y);
 
-            transform.position = new Vector3(15.9f, transform.position.y, -0.2f);
+            transform.position = new Vector3(15.9f, transform.position.y, 0);
         }
 
-        // Check if the Z key is pressed and the action hasn't been performed yet
         if (Input.GetKeyDown(KeyCode.Z) && !hasPressedZ)
         {
-            // Make the child GameObject visible
-            if (childObject != null)
+            if (elbow != null)
             {
-                childObject.SetActive(true);
+                elbow.SetActive(true);
             }
 
-            // Set the flag to indicate that the action has been performed
             hasPressedZ = true;
 
-            // Start a coroutine to make the elbow disappear after a delay
             StartCoroutine(MakeElbowDisappear());
         }
 
-        // Check if the Z key is pressed and the action hasn't been performed yet
         if (Input.GetKeyUp(KeyCode.Z) && hasPressedZ)
         {
             hasPressedZ = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.X) && !hasPressedX)
+        {
+            if (cup != null)
+            {
+                cup.SetActive(true);
+            }
+
+            hasPressedX = true;
+
+            StartCoroutine(MakeCupDisappear());
+        }
+
+        if (Input.GetKeyUp(KeyCode.X) && hasPressedX)
+        {
+            hasPressedX = false;
         }
     }
 
     IEnumerator MakeElbowDisappear()
     {
-        // Wait for 0.2 seconds
         yield return new WaitForSeconds(0.2f);
 
-        // Make the child GameObject disappear
-        if (childObject != null)
+        if (elbow != null)
         {
-            childObject.SetActive(false);
+            elbow.SetActive(false);
         }
+    }
+
+    IEnumerator MakeCupDisappear()
+    {
+        yield return new WaitForSeconds(0.2f);
+
+        if (cup != null)
+        {
+            cup.SetActive(false);
+        }
+    }
+
+    public void OnTriggerEnter2D(Collider2D collider)
+    {
+        if (collider.tag == "EnemyElbow")
+        {
+            if (!isHit)
+            {
+                isHit = true;
+                Debug.Log("Enemy elbow hit");
+                playerController.GetHitSound();
+                playerController.SetHealthBar(0.10f);
+                animate.SetBool("isHit", true);
+            }
+            
+        }
+    }
+
+    public void OnTriggerExit2D(Collider2D collider)
+    {
+        if (collider.tag == "EnemyElbow")
+        {
+            if (isHit)
+            {
+                isHit = false;
+                Debug.Log("Enemy elbow hit out");
+                animate.SetBool("isHit", false);
+            }
+        }
+    }
+
+    IEnumerator ShowPlayerEnding()
+    {
+        yield return new WaitForSeconds(1.5f);
+        SceneManager.LoadScene(6);
+
     }
 }
